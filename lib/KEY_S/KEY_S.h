@@ -8,4 +8,9 @@
 #define KEY_ON 0
 #define KEY_OFF 1
 
+void KEY_Init(void);
+void KEY1_Init(void);
+void KEY2_Init(void);
+
+
 #endif // __KEY_S_H
