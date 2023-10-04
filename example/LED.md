@@ -108,12 +108,14 @@ int main()
     
 	//配置timer32
 	MAP_Timer32_initModule(TIMER32_BASE, TIMER32_PRESCALER_1, TIMER32_32BIT,TIMER32_PERIODIC_MODE);
+
 	//开启中断
 	MAP_Interrupt_enableInterrupt(INT_T32_INT1);
 	//开启总中断
 	MAP_Interrupt_enableMaster();
+
 	//开启定时器
-	MAP_Timer32_setCount(TIMER32_BASE,750000);
+	MAP_Timer32_setCount(TIMER32_BASE,750000);//2.5s
     MAP_Timer32_enableInterrupt(TIMER32_BASE);
     MAP_Timer32_startTimer(TIMER32_BASE, true);
 

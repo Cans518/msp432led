@@ -11,6 +11,7 @@
 void KEY_Init(void);
 void KEY1_Init(void);
 void KEY2_Init(void);
+void KEY1_antishake(void);
+void KEY2_antishake(void);
 
-
-#endif // __KEY_S_H
+#endif //__KEY_S_H
