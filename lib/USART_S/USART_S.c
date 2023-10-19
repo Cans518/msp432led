@@ -2,7 +2,7 @@
 
 void UART_Init(void) {
     // 配置UART引脚
-    GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P1, GPIO_PIN2 | GPIO_PIN3, GPIO_PRIMARY_MODULE_FUNCTION);
+    MAP_GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P1, GPIO_PIN2 | GPIO_PIN3, GPIO_PRIMARY_MODULE_FUNCTION);
 
     // 配置UART参数
     EUSCI_A0->CTLW0 = EUSCI_A_CTLW0_SWRST; // 将UART模块复位
@@ -23,7 +23,6 @@ void EUSCIA0_IRQHandler(void) {
     if (EUSCI_A0->IFG & EUSCI_A_IFG_RXIFG) {
         // 从UART接收缓冲区读取数据
         uint8_t receivedData = EUSCI_A0->RXBUF;
-
         // 在这里执行接收到数据后的操作
     }
 }

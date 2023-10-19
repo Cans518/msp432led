@@ -1,15 +1,14 @@
-#include "DELAY.h"
+#include "DELAY_S.h"
 static uint8_t fac_us = 0;	//us延时倍乘数
 
 //初始化延迟函数
-//当使用OS的时候,此函数会初始化OS的时钟节拍
 //SYSTICK的时钟固定为HCLK时钟的1/8
 //SYSCLK:系统时钟
-void delay_init()
-{
-	fac_us = CS_getMCLK() / 1000000;		 //系统时钟
+void delay_init(){
+	fac_us = MAP_CS_getMCLK();
 	SysTick->CTRL |= SysTick_CTRL_CLKSOURCE_Msk; //内部时钟源
 }
+
 void delay_us(uint32_t nus)
 {
 	uint32_t temp;
