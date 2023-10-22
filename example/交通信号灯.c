@@ -1,5 +1,6 @@
 #include <driverlib.h>
 #include <LED_S.h>
+#include <KEY_S.h>
 
 int8_t a[10],i = 0;
 int16_t TimeNow = 0;
@@ -31,6 +32,7 @@ int main(void)
 	MAP_WDT_A_holdTimer();
 
 	LED_Init();
+	KEY_Init();
 	
 	// 初始化GPIO
 	MAP_GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P1, GPIO_PIN2|GPIO_PIN3, GPIO_PRIMARY_MODULE_FUNCTION);
@@ -55,7 +57,7 @@ int main(void)
 	MAP_Interrupt_enableInterrupt(INT_EUSCIA0);
 
 	MAP_SysTick_enableModule();//使能系统滴答定时器模块
-    MAP_SysTick_setPeriod(1200000);//设置装载初值，1秒
+    MAP_SysTick_setPeriod(1200000);//设置装载初值，0.1秒
     MAP_Interrupt_enableSleepOnIsrExit();//使能退出时进入中断睡眠模式
     MAP_SysTick_enableInterrupt();//使能系统滴答定时器中断
 	
@@ -75,35 +77,48 @@ void EUSCIA0_IRQHandler(void){
 
 void SysTick_Handler(void){
 
-	switch (TimeNow){
-		case 10:LED2_GREEN_ON(); UART_Printf("6\n");break;
-		case 20: UART_Printf("5\n");break;
-		case 30: UART_Printf("4\n");break;
-		case 40: UART_Printf("3\n");break;
-		case 50: UART_Printf("2\n");break;
-		case 60: UART_Printf("1\n");break;
-		case 70: UART_Printf("3\n");break;
-		case 71 ... 79: 	LED2_GREEN_TOGGLE();break;
-		case 80: UART_Printf("2\n");break;
-		case 81 ... 89: 	LED2_GREEN_TOGGLE();break;
-		case 90: UART_Printf("1\n");break;
-		case 91 ... 99: 	LED2_GREEN_TOGGLE();break;
-		case 100:LED2_GREEN_OFF(); LED2_YELLOW_ON(); UART_Printf("3\n");break;
-		case 110:UART_Printf("2\n");break;
-		case 120:UART_Printf("1\n");break;
-		case 130:LED2_YELLOW_OFF(); LED2_RED_ON(); UART_Printf("5\n");break;
-		case 140:UART_Printf("4\n");break;
-		case 150:UART_Printf("3\n");break;
-		case 160:UART_Printf("2\n");break;
-		case 170:UART_Printf("1\n");break;
-		case 180:UART_Printf("3\n");break;
-		case 181 ... 189: 	LED2_RED_TOGGLE();break;
-		case 190:UART_Printf("2\n");break;
-		case 191 ... 199: 	LED2_RED_TOGGLE();break;
-		case 200:UART_Printf("1\n");break;
-		case 201 ... 209: 	LED2_RED_TOGGLE();break;
-		case 210:LED2_RED_OFF(); TimeNow = 0;break;
-		default:break;
+	if (KEY1 == KEY_ON){
+		LED_Init();
+		LED2_RED_ON();
+		UART_Printf("Emergency vehicles passing, no traffic allowed\n");
+		while (KEY2 == KEY_OFF);
+		LED2_RED_OFF();
+		UART_Printf("Passing completed, normal traffic\n");
+		TimeNow =0;
 	}
-	TimeNow++;
+	else{
+		switch (TimeNow){
+			case 10:LED2_GREEN_ON(); UART_Printf("6\n");break;
+			case 20: UART_Printf("5\n");break;
+			case 30: UART_Printf("4\n");break;
+			case 40: UART_Printf("3\n");break;
+			case 50: UART_Printf("2\n");break;
+			case 60: UART_Printf("1\n");break;
+			case 70: UART_Printf("3\n");break;
+			case 71 ... 79: 	LED2_GREEN_TOGGLE();break;
+			case 80: UART_Printf("2\n");break;
+			case 81 ... 89: 	LED2_GREEN_TOGGLE();break;
+			case 90: UART_Printf("1\n");break;
+			case 91 ... 99: 	LED2_GREEN_TOGGLE();break;
+			case 100:LED2_GREEN_OFF(); LED2_YELLOW_ON(); UART_Printf("3\n");break;
+			case 110:UART_Printf("2\n");break;
+			case 120:UART_Printf("1\n");break;
+			case 130:LED2_YELLOW_OFF(); LED2_RED_ON(); UART_Printf("5\n");break;
+			case 140:UART_Printf("4\n");break;
+			case 150:UART_Printf("3\n");break;
+			case 160:UART_Printf("2\n");break;
+			case 170:UART_Printf("1\n");break;
+			case 180:UART_Printf("3\n");break;
+			case 181 ... 189: 	LED2_RED_TOGGLE();break;
+			case 190:UART_Printf("2\n");break;
+			case 191 ... 199: 	LED2_RED_TOGGLE();break;
+			case 200:UART_Printf("1\n");break;
+			case 201 ... 209: 	LED2_RED_TOGGLE();break;
+			case 210:LED2_RED_OFF(); TimeNow = 9;break;
+			default:break;
+		}
+		TimeNow++;
+	}
+	
+
 }

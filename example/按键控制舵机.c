@@ -1,4 +1,5 @@
 #include <driverlib.h>
+#include <stdlib.h>
 #include <KEY_S.h>
 #include <LED_S.h>
 
@@ -51,48 +52,67 @@ int main()
 
     MAP_Timer_A_initCompare(TIMER_A2_BASE, &compareConfig_PWM);
 
-	//当key1或者key2按下时，开关LED
-	while(1){
-		if(KEY1 == KEY_ON){
-			for (uint16_t i  = 0;i <= 500; i++){}
-			for (uint16_t i  = 0;; i++){if(KEY1 == KEY_OFF)break;}
-            LED2_RED_OFF();
-            LED2_BLUE_ON();
-            duty_cycle += 333;
-            cout_1++;
-            if(cout_2 > 0) cout_2--;
-            if(cout_1 > 10){
-                cout_1 = 0;
-                cout_2 = 0;
-                duty_cycle = DUTY_CYCLE;
-            }
-            compareConfig_PWM.compareValue = duty_cycle;
-            MAP_Timer_A_initCompare(TIMER_A2_BASE, &compareConfig_PWM);
-            M_Delay(00000);
-            LED2_BLUE_OFF();
-            LED2_RED_ON();
-		}
-		if(KEY2 == KEY_ON){
-			for (uint16_t i  = 0;i <= 500; i++){}
-			for (uint16_t i  = 0;; i++){if(KEY2 == KEY_OFF)break;}
-            LED2_GREEN_ON();
-            LED2_RED_OFF();
-			duty_cycle -= 333;
-            cout_2++;
-            if(cout_1 > 0) cout_1--;
-            if(cout_2 > 10){
-                cout_1 = 0;
-                cout_2 = 0;
-                duty_cycle = DUTY_CYCLE;
-            }
-            compareConfig_PWM.compareValue = duty_cycle;
-            MAP_Timer_A_initCompare(TIMER_A2_BASE, &compareConfig_PWM);
-            M_Delay(100000);
-            LED2_GREEN_OFF();
-            LED2_RED_ON();
-		}
-	}
 
+    MAP_GPIO_setAsInputPinWithPullUpResistor(GPIO_PORT_P1,GPIO_PIN1|GPIO_PIN4); 
+
+    MAP_GPIO_clearInterruptFlag(GPIO_PORT_P1,GPIO_PIN1|GPIO_PIN4);  //清空中断标识位
+
+    MAP_GPIO_interruptEdgeSelect(GPIO_PORT_P1,GPIO_PIN1|GPIO_PIN4,GPIO_HIGH_TO_LOW_TRANSITION);   //edge
+
+    MAP_GPIO_enableInterrupt(GPIO_PORT_P1,GPIO_PIN1|GPIO_PIN4);
+
+    //使能中断
+    MAP_Interrupt_enableInterrupt(INT_PORT1);
+    MAP_Interrupt_enableSleepOnIsrExit();
+    MAP_Interrupt_enableMaster();	
+
+	while(1)
+		MAP_PCM_gotoLPM0();//低功耗模式0，串口中断唤醒
 
     return 0;
+}
+
+void PORT1_IRQHandler(void)
+{
+
+    //中断服务
+    uint32_t status = MAP_GPIO_getEnabledInterruptStatus(GPIO_PORT_P1); //获取中断状态
+    MAP_GPIO_clearInterruptFlag(GPIO_PORT_P1,status);	//清除标志位
+
+	if(KEY1 == KEY_ON){
+		for (uint16_t i  = 0;i <= 500; i++){}
+		for (uint16_t i  = 0;; i++){if(KEY1 == KEY_OFF)break;}
+        LED2_RED_OFF();
+        LED2_BLUE_ON();
+        duty_cycle += 333;
+        cout_1++;
+        if(abs(cout_1 - cout_2) >= 10){
+            cout_1 = 0;
+            cout_2 = 0;
+            duty_cycle = DUTY_CYCLE;
+        }
+        compareConfig_PWM.compareValue = duty_cycle;
+        MAP_Timer_A_initCompare(TIMER_A2_BASE, &compareConfig_PWM);
+        M_Delay(100000);
+        LED2_BLUE_OFF();
+        LED2_RED_ON();
+	}
+	if(KEY2 == KEY_ON){
+		for (uint16_t i  = 0;i <= 500; i++){}
+		for (uint16_t i  = 0;; i++){if(KEY2 == KEY_OFF)break;}
+        LED2_GREEN_ON();
+        LED2_RED_OFF();
+        duty_cycle -= 333;
+        cout_2++;
+        if(abs(cout_1 - cout_2) >= 10){
+            cout_1 = 0;
+            cout_2 = 0;
+            duty_cycle = DUTY_CYCLE;
+        }
+        compareConfig_PWM.compareValue = duty_cycle;
+        MAP_Timer_A_initCompare(TIMER_A2_BASE, &compareConfig_PWM);
+        M_Delay(100000);
+        LED2_GREEN_OFF();
+        LED2_RED_ON();
+	}
 }

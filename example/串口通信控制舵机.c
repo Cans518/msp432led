@@ -1,11 +1,13 @@
 #include <driverlib.h>
 #include <LED_S.h>
+#include <stdio.h>
 
-#define TIMER_PERIODA 240000 // 周期 20ms——控制舵机的PWM波
+#define TIMER_PERIODA 240000 // 周期 20ms——控制舵机的PWM波 
 #define DUTY_CYCLE 18000 // 2.5ms的工作时间，对应sg90舵机的90°位置
 
 uint32_t duty_cycle = DUTY_CYCLE;
 uint8_t cout_1 = 0, cout_2 = 0;
+char str[100];
 
 /* Timer_A2 Up Configuration Parameter */   //使用Timer_A2.1，对应引脚5.6
 const Timer_A_UpModeConfig upConfigA2 =
@@ -46,7 +48,7 @@ const eUSCI_UART_Config uartConfig =
 	EUSCI_A_UART_OVERSAMPLING_BAUDRATE_GENERATION//滤波
 };
 
-void UAPT_Printf(char *str)
+void UART_Printf(char *str)
 {
 	while(*str)
 		MAP_UART_transmitData(EUSCI_A0_BASE, (uint8_t)*(str++));
@@ -113,10 +115,12 @@ void EUSCIA0_IRQHandler(void)
                 cout_1 = 0;
                 cout_2 = 0;
                 duty_cycle = DUTY_CYCLE;
-                UAPT_Printf("Truned on 180 degree now. Trun back to 90 degree\n");
+                UART_Printf("\nTruned on 180 degree now. Trun back to 90 degree\n");
             }
-            else
-                UAPT_Printf("Clockwise select 10 degree\n");
+            else{
+                sprintf(str,"\nClockwise select 10 degree\nNow it's %d degree.\n",90 + cout_1*10 - cout_2*10);
+                UART_Printf(str);
+            }
             compareConfig_PWM.compareValue = duty_cycle;
             MAP_Timer_A_initCompare(TIMER_A2_BASE, &compareConfig_PWM);
             M_Delay(400000);
@@ -133,10 +137,12 @@ void EUSCIA0_IRQHandler(void)
                 cout_1 = 0;
                 cout_2 = 0;
                 duty_cycle = DUTY_CYCLE;
-                UAPT_Printf("Truned on 0 degree now. Trun back to 90 degree\n");
+                UART_Printf("Truned on 0 degree now. Trun back to 90 degree\n");
             }
-            else
-                UAPT_Printf("Counterclockwise select 10 degree\n");
+            else{
+                sprintf(str,"Counterclockwise select 10 degree\nNow it's %d degree.\n",90 + cout_1*10 - cout_2*10);
+                UART_Printf(str);
+            }
             compareConfig_PWM.compareValue = duty_cycle;
             MAP_Timer_A_initCompare(TIMER_A2_BASE, &compareConfig_PWM);
             
@@ -152,7 +158,7 @@ void EUSCIA0_IRQHandler(void)
             duty_cycle = DUTY_CYCLE;
             compareConfig_PWM.compareValue = duty_cycle;
             MAP_Timer_A_initCompare(TIMER_A2_BASE, &compareConfig_PWM);
-            UAPT_Printf("Trun to 90 degree.\n");
+            UART_Printf("Trun to 90 degree.\n");
             M_Delay(400000);
             LED2_WHITE_OFF();
             LED2_RED_ON();
