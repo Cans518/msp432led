@@ -63,6 +63,7 @@ int main(void)
 void SysTick_Handler(void){
 
 	if (KEY1 == KEY_ON){
+		KEY1_antishake(); // 按键防抖
 		LED_Init();
 		LED2_RED_ON();
 		UART_Printf("Emergency vehicles passing, no traffic allowed\n");

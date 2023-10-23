@@ -76,8 +76,7 @@ void PORT1_IRQHandler(void)
 
 	// 当KEY1(P1.1)被按下时
     if(KEY1 == KEY_ON){
-		for (uint16_t i  = 0;i <= 500; i++){}
-		for (uint16_t i  = 0;; i++){if(KEY1 == KEY_OFF)break;} // 按键防抖
+        KEY1_antishake(); // 按键防抖
         LED2_RED_OFF(); // 关闭红灯
         LED2_BLUE_ON(); // 打开蓝灯,提示正在转动
         duty_cycle += 333; // 顺时针转动10°
@@ -95,8 +94,7 @@ void PORT1_IRQHandler(void)
 	}
     // 当KEY2(P1.4)被按下时
 	if(KEY2 == KEY_ON){
-		for (uint16_t i  = 0;i <= 500; i++){}
-		for (uint16_t i  = 0;; i++){if(KEY2 == KEY_OFF)break;} // 按键防抖
+        KEY2_antishake(); // 按键防抖
         LED2_GREEN_ON(); // 打开绿灯
         LED2_RED_OFF(); // 关闭红灯
         duty_cycle -= 333; // 逆时针转动10°
