@@ -2,17 +2,17 @@
 #include <LED_S.h>
 #include <KEY_S.h>
 
-int8_t a[10],i = 0;
 int16_t TimeNow = 0;
 
 //配置结构体
 const eUSCI_UART_Config uartConfig =
 {
 	EUSCI_A_UART_CLOCKSOURCE_SMCLK,//时钟源
-	78,//BRDIV = 6
-	2,//UCxBRF = 8
-	0,//UCxBRS = 0x20
-	//这里配置波特率为115200bps,数据来源为用户手册
+	78,//BRDIV = 78
+	2,//UCxBRF = 2
+	0,//UCxBRS = 0
+	//这里配置波特率为12MHz下的9600bps,数据来源为用户手册
+	//使用9600bps，是因为传输数据到arduino时，使用arduino的软串口，软串口的波特率建议不超过57600bps
 	EUSCI_A_UART_NO_PARITY,//无校验
 	EUSCI_A_UART_LSB_FIRST,//低位先行
 	EUSCI_A_UART_ONE_STOP_BIT,//一个停止位
@@ -28,51 +28,36 @@ void UART_Printf(char *str)
 
 int main(void)
 {
-	//关闭开门狗
-	MAP_WDT_A_holdTimer();
+	MAP_WDT_A_holdTimer(); // 关闭开门狗
 
-	LED_Init();
-	KEY_Init();
-	
-	// 初始化GPIO
-	MAP_GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P1, GPIO_PIN2|GPIO_PIN3, GPIO_PRIMARY_MODULE_FUNCTION);
-	
-	// 初始化LED1，并保持默认关闭
-	MAP_GPIO_setAsOutputPin(GPIO_PORT_P1, GPIO_PIN0);
-	MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P1, GPIO_PIN0);
+	LED_Init(); // 初始化LED
+	KEY_Init(); // 初始化KEY
 
-	// 设置DCO频率为12Hz
-	MAP_CS_setDCOCenteredFrequency(CS_DCO_FREQUENCY_12);
+    LED1_RED_ON(); // 打开LED1的红色灯，表示通电使用中
 	
-	// 初始化UART模块
-	MAP_UART_initModule(EUSCI_A0_BASE, &uartConfig);
+	MAP_GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P1, GPIO_PIN2|GPIO_PIN3, GPIO_PRIMARY_MODULE_FUNCTION); // 初始化GPIO P1.2 和 P1.3口作为UART接收和输出，根据用户手册，P1.2接收，P1.3输出
 
-	// 开启UART模块
-	MAP_UART_enableModule(EUSCI_A0_BASE);
-	
-	// 打开UART接收中断
-	MAP_UART_enableInterrupt(EUSCI_A0_BASE, EUSCI_A_UART_RECEIVE_INTERRUPT);
-	
-	// 使能UART中断
-	MAP_Interrupt_enableInterrupt(INT_EUSCIA0);
+	MAP_CS_setDCOCenteredFrequency(CS_DCO_FREQUENCY_12); // 设置DCO频率为12Hz
 
-	MAP_SysTick_enableModule();//使能系统滴答定时器模块
-    MAP_SysTick_setPeriod(1200000);//设置装载初值，0.1秒
-    MAP_Interrupt_enableSleepOnIsrExit();//使能退出时进入中断睡眠模式
-    MAP_SysTick_enableInterrupt();//使能系统滴答定时器中断
+	MAP_UART_initModule(EUSCI_A0_BASE, &uartConfig); // 初始化UART模块
+
+	MAP_UART_enableModule(EUSCI_A0_BASE); // 开启UART模块
+
+	MAP_SysTick_enableModule(); // 使能系统滴答定时器模块
+
+    MAP_SysTick_setPeriod(1200000); // 设置装载初值，0.1秒
+
+    MAP_Interrupt_enableSleepOnIsrExit(); // 使能退出时进入中断睡眠模式
+
+    MAP_SysTick_enableInterrupt(); // 使能系统滴答定时器中断
 	
-	// 允许在 ISR 退出时进入睡眠模式
-	MAP_Interrupt_enableSleepOnIsrExit();
-	
-	// 使能总中断
-	MAP_Interrupt_enableMaster();
+	MAP_Interrupt_enableSleepOnIsrExit(); // 允许在 ISR 退出时进入睡眠模式
+
+	MAP_Interrupt_enableMaster(); // 使能总中断
 	
 	while (1)
-		MAP_PCM_gotoLPM0();//低功耗模式0，串口中断唤醒
+		MAP_PCM_gotoLPM0();//低功耗模式0，中断唤醒
 	
-}
-
-void EUSCIA0_IRQHandler(void){
 }
 
 void SysTick_Handler(void){
@@ -119,6 +104,4 @@ void SysTick_Handler(void){
 		}
 		TimeNow++;
 	}
-	
-
 }

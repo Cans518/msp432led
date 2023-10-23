@@ -1,74 +1,121 @@
 #include <driverlib.h>
-#include <stdlib.h>
-#include <KEY_S.h>
 #include <LED_S.h>
+#include <KEY_S.h>
+#include <DELAY_S.h>
+#include <stdio.h>
 
-#define TIMER_PERIODA 60000 // 周期 20ms——控制舵机的PWM波
-#define DUTY_CYCLE 4500 // 舵机转动90°（对应停车牌下落）
+char str[100]; // str字符串用于储存串口输出的数据
 
-uint32_t duty_cycle = DUTY_CYCLE;
-uint8_t cout_1 = 0, cout_2 = 0;
-
-/* Timer_A2 Up Configuration Parameter */   //使用Timer_A2.1，对应引脚5.6
-const Timer_A_UpModeConfig upConfigA2 =
+// UART串口输出的配置结构体，对应UART模块
+const eUSCI_UART_Config uartConfig =
 {
-        TIMER_A_CLOCKSOURCE_SMCLK,              // SMCLK Clock SOurce
-        TIMER_A_CLOCKSOURCE_DIVIDER_1,          // SMCLK/1 = 3MHz
-        TIMER_PERIODA,                           // 60000 tick period
+	EUSCI_A_UART_CLOCKSOURCE_SMCLK,//时钟源
+	1,//BRDIV = 1
+	10,//UCxBRF = 10
+	1,//UCxBRS = 1
+	//这里在12MHz下配置波特率为115200bps,数据来源为用户手册
+	EUSCI_A_UART_NO_PARITY,//无校验
+	EUSCI_A_UART_LSB_FIRST,//低位先行
+	EUSCI_A_UART_ONE_STOP_BIT,//一个停止位
+	EUSCI_A_UART_MODE,//UART模式
+	EUSCI_A_UART_OVERSAMPLING_BAUDRATE_GENERATION//滤波
+};
+
+void UART_Printf(char *str)
+{
+	while(*str)
+		MAP_UART_transmitData(EUSCI_A0_BASE, (uint8_t)*(str++));
+}
+
+const Timer_A_UpModeConfig upConfig =
+{
+        TIMER_A_CLOCKSOURCE_SMCLK,              // SMCLK Clock Source
+        TIMER_A_CLOCKSOURCE_DIVIDER_3,          // SMCLK/1 = 12MHz
+        50000,                                  // 5000 tick period
         TIMER_A_TAIE_INTERRUPT_DISABLE,         // Disable Timer interrupt
-        TIMER_A_CCIE_CCR0_INTERRUPT_DISABLE,    // Disable CCR0 interrupt
+        TIMER_A_CCIE_CCR0_INTERRUPT_ENABLE,     // Enable CCR0 interrupt
         TIMER_A_DO_CLEAR                        // Clear value
-
 };
 
-/* Timer_A Compare Configuration Parameter  (PWM1) */  //对应引脚5.6
-Timer_A_CompareModeConfig compareConfig_PWM =
+void HCSR04Init(void)
 {
-        TIMER_A_CAPTURECOMPARE_REGISTER_1,          // Use CCR1  TAx1
-        TIMER_A_CAPTURECOMPARE_INTERRUPT_DISABLE,   // Disable CCR interrupt
-        TIMER_A_OUTPUTMODE_TOGGLE_SET,              // Toggle output but
-        DUTY_CYCLE                                 // 3000 Duty Cycle
-};
+    MAP_GPIO_setAsOutputPin(GPIO_PORT_P2, GPIO_PIN4); // 初始化P2.4为输出，Trig激发引脚
+	MAP_GPIO_setAsInputPin(GPIO_PORT_P5, GPIO_PIN6);  // 初始化P5.6为输入，echo回波引脚
+	
+    MAP_GPIO_setAsInputPinWithPullDownResistor(GPIO_PORT_P5, GPIO_PIN6); // 初始化P5.6为输入，电平默认为低
+    
+	MAP_GPIO_disableInterrupt(GPIO_PORT_P2, GPIO_PIN4); // 禁止P2.4的中断
+    MAP_GPIO_disableInterrupt(GPIO_PORT_P5, GPIO_PIN6); // 禁止P5.6的中断
 
-void M_Delay(volatile uint32_t i){
-    for ( i ; i > 0; i--){}
+    MAP_Timer_A_configureUpMode(TIMER_A2_BASE, &upConfig); // 配置Timer_A2.1，对应引脚为P5.6
+
+    MAP_Interrupt_enableInterrupt(INT_TA1_0); // 使能TA1.0中断
+    MAP_Timer_A_startCounter(TIMER_A2_BASE, TIMER_A_UP_MODE); // 开启Timer_A2.1为向上计数模式
+}
+
+void TA1_0_IRQHandler(void)
+{
+    MAP_Timer_A_clearCaptureCompareInterrupt(TIMER_A2_BASE,TIMER_A_CAPTURECOMPARE_REGISTER_0); // 清除TA1.0中断
+}
+
+float Distance(void)
+{
+	int i=0;
+	float distance=0,sum = 0,count;
+	while(i!=5)
+	{
+	    MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN4); // P2.4 Trig 输出低电平,准备触发
+		MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P2, GPIO_PIN4);// P2.4 Trig 输出高电平
+		delay_us(20); // 延时20us, 高电平持续20us激发测距
+        // 按照说明书来讲SR-04应该使用10us来激发，但是实际测试来看使用20us激发的测距更准确
+		MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN4);// P2.4 Trig 输出低电平，结束触发
+
+		while(MAP_GPIO_getInputPinValue(GPIO_PORT_P5,GPIO_PIN6) == 0 );	// 当P5.6变为高电平时，测距开始
+		TIMER_A_CMSIS(TIMER_A2_BASE)->R = 0; // TA2.1清空计数
+		while(MAP_GPIO_getInputPinValue(GPIO_PORT_P5,GPIO_PIN6) == 1); // 当P5.6变为低电平时,测距完成
+		count=TIMER_A_CMSIS(TIMER_A2_BASE)->R; // 读取TA2.1计数
+		//v = 340m/s = 34000cm/s = 34000cm/10^6us = 0.034cm/us
+		//s = vt/2 = t*0.034/2 = t*0.017 = t/5.8	
+		distance=(count / 5.8);	// 计算距离
+		i++; 
+		sum = sum + distance;
+	}
+	return sum / 5; // 返回平均距离
 }
 
 int main()
 {
-    //关闭看门狗
-    MAP_WDT_A_holdTimer();
+    MAP_WDT_A_holdTimer(); // 关闭看门狗
 
-	KEY_Init();
+    LED_Init();
+    LED1_RED_ON(); // 打开LED1的红色灯，表示通电使用中
 
-    MAP_GPIO_setAsPeripheralModuleFunctionOutputPin(GPIO_PORT_P5,GPIO_PIN6, GPIO_PRIMARY_MODULE_FUNCTION);
+    KEY_Init(); // 初始化按键
 
-    //初始化P2.0,并点亮
-	LED2_Init();
-	LED2_RED_ON();
+    HCSR04Init(); // 初始化HCSR04模块
 
-    MAP_Timer_A_configureUpMode(TIMER_A2_BASE, &upConfigA2);
-    MAP_Timer_A_startCounter(TIMER_A2_BASE, TIMER_A_UP_MODE);
+	MAP_GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P1, GPIO_PIN2|GPIO_PIN3, GPIO_PRIMARY_MODULE_FUNCTION); // 初始化GPIO P1.2 和 P1.3口作为UART接收和输出，根据用户手册，P1.2接收，P1.3输出
+	
+	MAP_CS_setDCOCenteredFrequency(CS_DCO_FREQUENCY_3); // 设置DCO频率为12Hz
+	
+	MAP_UART_initModule(EUSCI_A0_BASE, &uartConfig); // 初始化UART模块
 
-    MAP_Timer_A_initCompare(TIMER_A2_BASE, &compareConfig_PWM);
+	MAP_UART_enableModule(EUSCI_A0_BASE); // 开启UART模块
 
+    MAP_GPIO_clearInterruptFlag(GPIO_PORT_P1,GPIO_PIN1 | GPIO_PIN4);  // 清除按键中断标志位
 
-    MAP_GPIO_setAsInputPinWithPullUpResistor(GPIO_PORT_P1,GPIO_PIN1|GPIO_PIN4); 
+    MAP_GPIO_interruptEdgeSelect(GPIO_PORT_P1,GPIO_PIN1|GPIO_PIN4,GPIO_HIGH_TO_LOW_TRANSITION); // 设置中断边沿
 
-    MAP_GPIO_clearInterruptFlag(GPIO_PORT_P1,GPIO_PIN1|GPIO_PIN4);  //清空中断标识位
+    MAP_GPIO_enableInterrupt(GPIO_PORT_P1,GPIO_PIN1|GPIO_PIN4); // 打开按键中断
 
-    MAP_GPIO_interruptEdgeSelect(GPIO_PORT_P1,GPIO_PIN1|GPIO_PIN4,GPIO_HIGH_TO_LOW_TRANSITION);   //edge
+    MAP_Interrupt_enableInterrupt(INT_PORT1); // 使能按键中断
 
-    MAP_GPIO_enableInterrupt(GPIO_PORT_P1,GPIO_PIN1|GPIO_PIN4);
+    MAP_Interrupt_enableSleepOnIsrExit();// 允许未中断时进入睡眠低功耗模式
 
-    //使能中断
-    MAP_Interrupt_enableInterrupt(INT_PORT1);
-    MAP_Interrupt_enableSleepOnIsrExit();
-    MAP_Interrupt_enableMaster();	
+    MAP_Interrupt_enableMaster(); // 使能总中断
 
-	//当key1或者key2按下时，开关LED
-	while(1)
-		MAP_PCM_gotoLPM0();//低功耗模式0，串口中断唤醒
+    while(1)
+        MAP_PCM_gotoLPM0();//低功耗模式0，串口中断唤醒
 
     return 0;
 }
@@ -80,40 +127,15 @@ void PORT1_IRQHandler(void)
     uint32_t status = MAP_GPIO_getEnabledInterruptStatus(GPIO_PORT_P1); //获取中断状态
     MAP_GPIO_clearInterruptFlag(GPIO_PORT_P1,status);	//清除标志位
 
-	if(KEY1 == KEY_ON){
-		for (uint16_t i  = 0;i <= 500; i++){}
+    if(status & GPIO_PIN1)
+    {
+        for (uint16_t i  = 0;i <= 500; i++){}
 		for (uint16_t i  = 0;; i++){if(KEY1 == KEY_OFF)break;}
-        LED2_RED_OFF();
-        LED2_BLUE_ON();
-        duty_cycle += 333;
-        cout_1++;
-        if(abs(cout_1 - cout_2) >= 10){
-            cout_1 = 0;
-            cout_2 = 0;
-            duty_cycle = DUTY_CYCLE;
-        }
-        compareConfig_PWM.compareValue = duty_cycle;
-        MAP_Timer_A_initCompare(TIMER_A2_BASE, &compareConfig_PWM);
-        M_Delay(100000);
-        LED2_BLUE_OFF();
-        LED2_RED_ON();
-	}
-	if(KEY2 == KEY_ON){
-		for (uint16_t i  = 0;i <= 500; i++){}
-		for (uint16_t i  = 0;; i++){if(KEY2 == KEY_OFF)break;}
-        LED2_GREEN_ON();
-        LED2_RED_OFF();
-        duty_cycle -= 333;
-        cout_2++;
-        if(abs(cout_1 - cout_2) >= 10){
-            cout_1 = 0;
-            cout_2 = 0;
-            duty_cycle = DUTY_CYCLE;
-        }
-        compareConfig_PWM.compareValue = duty_cycle;
-        MAP_Timer_A_initCompare(TIMER_A2_BASE, &compareConfig_PWM);
-        M_Delay(100000);
-        LED2_GREEN_OFF();
-        LED2_RED_ON();
-	}
+        LED2_GREEN_ON(); // 打开绿色LED，表示正在测距
+        float Distance1= Distance(); // 测距
+        sprintf(str,"Distance = %.2fmm\r\n",Distance1); // 将测距结果转换为字符串 
+        UART_Printf(str); // 打印测距结果
+        delay_ms(50); // 延时50ms,等待下一次测距
+        LED2_GREEN_OFF(); // 关闭绿色LED，表示测距结束
+    }
 }

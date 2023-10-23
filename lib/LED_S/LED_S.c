@@ -1,7 +1,7 @@
 #include<LED_S.h>
 
 void LED_Init(void){LED1_Init();LED2_Init();}
-void LED1_Init(void){P1DIR |= BIT0;}
+void LED1_Init(void){P1DIR |= BIT0; LED1_RED=0;}
 void LED2_Init(void){P2DIR |= BIT0 | BIT1 | BIT2;LED2_BLUE=0;LED2_RED=0;LED2_GREEN=0;}
 
 
