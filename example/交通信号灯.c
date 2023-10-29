@@ -2,7 +2,7 @@
 #include <LED_S.h>
 #include <KEY_S.h>
 
-int16_t TimeNow = 0;
+int16_t TimeNow = 0; // 计时器，用于观察实际的时间
 
 //配置结构体
 const eUSCI_UART_Config uartConfig =
@@ -34,6 +34,9 @@ int main(void)
 	KEY_Init(); // 初始化KEY
 
     LED1_RED_ON(); // 打开LED1的红色灯，表示通电使用中
+
+	MAP_GPIO_setAsOutputPin(GPIO_PORT_P2,GPIO_PIN4); // 初始化GPIO P2.4作为蜂鸣器
+    MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P2,GPIO_PIN4); // 默认为高电平不触发
 	
 	MAP_GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P1, GPIO_PIN2|GPIO_PIN3, GPIO_PRIMARY_MODULE_FUNCTION); // 初始化GPIO P1.2 和 P1.3口作为UART接收和输出，根据用户手册，P1.2接收，P1.3输出
 
@@ -67,7 +70,9 @@ void SysTick_Handler(void){
 		LED_Init();
 		LED2_RED_ON();
 		UART_Printf("Emergency vehicles passing, no traffic allowed\n");
+		MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P2,GPIO_PIN4); // 打开蜂鸣器
 		while (KEY2 == KEY_OFF);
+		MAP_GPIO_toggleOutputOnPin(GPIO_PORT_P2,GPIO_PIN4); // 关闭蜂鸣器
 		LED2_RED_OFF();
 		UART_Printf("Passing completed, normal traffic\n");
 		TimeNow =0;

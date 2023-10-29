@@ -2,7 +2,6 @@
 #include <LED_S.h>
 #include <KEY_S.h>
 #include <DELAY_S.h>
-#include <stdio.h>
 
 char str[100]; // str字符串用于储存串口输出的数据
 
@@ -13,7 +12,7 @@ const eUSCI_UART_Config uartConfig =
 	1,//BRDIV = 1
 	10,//UCxBRF = 10
 	1,//UCxBRS = 1
-	//这里在12MHz下配置波特率为115200bps,数据来源为用户手册
+	//这里在3MHz下配置波特率为115200bps,数据来源为用户手册
 	EUSCI_A_UART_NO_PARITY,//无校验
 	EUSCI_A_UART_LSB_FIRST,//低位先行
 	EUSCI_A_UART_ONE_STOP_BIT,//一个停止位
@@ -29,34 +28,14 @@ void UART_Printf(char *str)
 
 const Timer_A_UpModeConfig upConfig =
 {
-        TIMER_A_CLOCKSOURCE_SMCLK,              // SMCLK Clock Source
-        TIMER_A_CLOCKSOURCE_DIVIDER_3,          // SMCLK/1 = 12MHz
+        TIMER_A_CLOCKSOURCE_SMCLK,              // 设置是时钟源为SMCLK
+        TIMER_A_CLOCKSOURCE_DIVIDER_3,          // SMCLK/3 = 1MHz
         50000,                                  // 5000 tick period
-        TIMER_A_TAIE_INTERRUPT_DISABLE,         // Disable Timer interrupt
-        TIMER_A_CCIE_CCR0_INTERRUPT_ENABLE,     // Enable CCR0 interrupt
-        TIMER_A_DO_CLEAR                        // Clear value
+        TIMER_A_TAIE_INTERRUPT_DISABLE,         // 禁止TA中断
+        TIMER_A_CCIE_CCR0_INTERRUPT_DISABLE,    // 禁止CCR0触发中断
+        TIMER_A_DO_CLEAR                        // 清空值
 };
 
-void HCSR04Init(void)
-{
-    MAP_GPIO_setAsOutputPin(GPIO_PORT_P2, GPIO_PIN4); // 初始化P2.4为输出，Trig激发引脚
-	MAP_GPIO_setAsInputPin(GPIO_PORT_P5, GPIO_PIN6);  // 初始化P5.6为输入，echo回波引脚
-	
-    MAP_GPIO_setAsInputPinWithPullDownResistor(GPIO_PORT_P5, GPIO_PIN6); // 初始化P5.6为输入，电平默认为低
-    
-	MAP_GPIO_disableInterrupt(GPIO_PORT_P2, GPIO_PIN4); // 禁止P2.4的中断
-    MAP_GPIO_disableInterrupt(GPIO_PORT_P5, GPIO_PIN6); // 禁止P5.6的中断
-
-    MAP_Timer_A_configureUpMode(TIMER_A2_BASE, &upConfig); // 配置Timer_A2.1，对应引脚为P5.6
-
-    MAP_Interrupt_enableInterrupt(INT_TA1_0); // 使能TA1.0中断
-    MAP_Timer_A_startCounter(TIMER_A2_BASE, TIMER_A_UP_MODE); // 开启Timer_A2.1为向上计数模式
-}
-
-void TA1_0_IRQHandler(void)
-{
-    MAP_Timer_A_clearCaptureCompareInterrupt(TIMER_A2_BASE,TIMER_A_CAPTURECOMPARE_REGISTER_0); // 清除TA1.0中断
-}
 
 float Distance(void)
 {
@@ -66,16 +45,14 @@ float Distance(void)
 	{
 	    MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN4); // P2.4 Trig 输出低电平,准备触发
 		MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P2, GPIO_PIN4);// P2.4 Trig 输出高电平
-		delay_us(20); // 延时20us, 高电平持续20us激发测距
-        // 按照说明书来讲SR-04应该使用10us来激发，但是实际测试来看使用20us激发的测距更准确
+		delay_us(10); // 延时10us, 高电平持续10us激发测距
 		MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN4);// P2.4 Trig 输出低电平，结束触发
-
 		while(MAP_GPIO_getInputPinValue(GPIO_PORT_P5,GPIO_PIN6) == 0 );	// 当P5.6变为高电平时，测距开始
-		TIMER_A_CMSIS(TIMER_A2_BASE)->R = 0; // TA2.1清空计数
+		    MAP_Timer_A_clearTimer(TIMER_A2_BASE);	 // TA2.1清空计数
 		while(MAP_GPIO_getInputPinValue(GPIO_PORT_P5,GPIO_PIN6) == 1); // 当P5.6变为低电平时,测距完成
-		count=TIMER_A_CMSIS(TIMER_A2_BASE)->R; // 读取TA2.1计数
+		    count= MAP_Timer_A_getCounterValue(TIMER_A2_BASE); // 读取TA2.1计数
 		//v = 340m/s = 34000cm/s = 34000cm/10^6us = 0.034cm/us
-		//s = vt/2 = t*0.034/2 = t*0.017 = t/5.8	
+		//s = vt/2 = t*0.034/2 = t*0.017 = t/5.8 mm
 		distance=(count / 5.8);	// 计算距离
 		i++; 
 		sum = sum + distance;
@@ -92,11 +69,16 @@ int main()
 
     KEY_Init(); // 初始化按键
 
-    HCSR04Init(); // 初始化HCSR04模块
+    MAP_GPIO_setAsOutputPin(GPIO_PORT_P2, GPIO_PIN4); // 初始化P2.4为输出，Trig激发引脚
+	MAP_GPIO_setAsInputPin(GPIO_PORT_P5, GPIO_PIN6);  // 初始化P5.6为输入，echo回波引脚
+	
+    MAP_GPIO_setAsInputPinWithPullDownResistor(GPIO_PORT_P5, GPIO_PIN6); // 初始化P5.6为输入，电平默认为低
+
+    MAP_Timer_A_configureUpMode(TIMER_A2_BASE, &upConfig); // 配置Timer_A2.1，对应引脚为P5.6
+
+    MAP_Timer_A_startCounter(TIMER_A2_BASE, TIMER_A_UP_MODE); // 开启Timer_A2.1为向上计数模式
 
 	MAP_GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P1, GPIO_PIN2|GPIO_PIN3, GPIO_PRIMARY_MODULE_FUNCTION); // 初始化GPIO P1.2 和 P1.3口作为UART接收和输出，根据用户手册，P1.2接收，P1.3输出
-	
-	MAP_CS_setDCOCenteredFrequency(CS_DCO_FREQUENCY_3); // 设置DCO频率为12Hz
 	
 	MAP_UART_initModule(EUSCI_A0_BASE, &uartConfig); // 初始化UART模块
 
@@ -122,15 +104,14 @@ int main()
 
 void PORT1_IRQHandler(void)
 {
-
     //中断服务
     uint32_t status = MAP_GPIO_getEnabledInterruptStatus(GPIO_PORT_P1); //获取中断状态
     MAP_GPIO_clearInterruptFlag(GPIO_PORT_P1,status);	//清除标志位
 
-    if(status & GPIO_PIN1)
+    if(KEY1 == KEY_ON || KEY2 == KEY_ON) 
     {
-        for (uint16_t i  = 0;i <= 500; i++){}
-		for (uint16_t i  = 0;; i++){if(KEY1 == KEY_OFF)break;}
+        KEY1_antishake(); // 按键防抖
+        KEY2_antishake(); // 按键防抖
         LED2_GREEN_ON(); // 打开绿色LED，表示正在测距
         float Distance1= Distance(); // 测距
         sprintf(str,"Distance = %.2fmm\r\n",Distance1); // 将测距结果转换为字符串 
