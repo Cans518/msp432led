@@ -1,6 +1,7 @@
 import cv2
 from pyzbar.pyzbar import decode
 import serial
+import numpy as np
 
 # 初始化串口
 ser = serial.Serial('COM6', 115200)  # 请替换'COM9'为你的串口名称

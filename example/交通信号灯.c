@@ -23,7 +23,7 @@ const eUSCI_UART_Config uartConfig =
 void UART_Printf(char *str)
 {
 	while(*str)
-		MAP_UART_transmitData(EUSCI_A0_BASE, (uint8_t)*(str++));
+		MAP_UART_transmitData(EUSCI_A2_BASE, (uint8_t)*(str++));
 }
 
 int main(void)
@@ -38,13 +38,13 @@ int main(void)
 	MAP_GPIO_setAsOutputPin(GPIO_PORT_P2,GPIO_PIN4); // 初始化GPIO P2.4作为蜂鸣器
     MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P2,GPIO_PIN4); // 默认为高电平不触发
 	
-	MAP_GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P1, GPIO_PIN2|GPIO_PIN3, GPIO_PRIMARY_MODULE_FUNCTION); // 初始化GPIO P1.2 和 P1.3口作为UART接收和输出，根据用户手册，P1.2接收，P1.3输出
+	MAP_GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P3, GPIO_PIN2|GPIO_PIN3, GPIO_PRIMARY_MODULE_FUNCTION); // 初始化GPIO P3.2 和 P3.3口作为UART接收和输出，根据用户手册，P1.2接收，P1.3输出
 
 	MAP_CS_setDCOCenteredFrequency(CS_DCO_FREQUENCY_12); // 设置DCO频率为12Hz
 
-	MAP_UART_initModule(EUSCI_A0_BASE, &uartConfig); // 初始化UART模块
+	MAP_UART_initModule(EUSCI_A2_BASE, &uartConfig); // 初始化UART模块
 
-	MAP_UART_enableModule(EUSCI_A0_BASE); // 开启UART模块
+	MAP_UART_enableModule(EUSCI_A2_BASE); // 开启UART模块
 
 	MAP_SysTick_enableModule(); // 使能系统滴答定时器模块
 
