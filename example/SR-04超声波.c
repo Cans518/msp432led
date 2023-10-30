@@ -30,7 +30,9 @@ const Timer_A_UpModeConfig upConfig =
 {
         TIMER_A_CLOCKSOURCE_SMCLK,              // 设置是时钟源为SMCLK
         TIMER_A_CLOCKSOURCE_DIVIDER_3,          // SMCLK/3 = 1MHz
-        50000,                                  // 5000 tick period
+        70000,                                  // 70000 tick period
+        // 周期设置为70ms，根据CH-SR04的参数来看，最长的echo持续时长为66ms左右
+        // 设置周期为70ms保证最长的echo持续时长都能在一个周期内计数完毕
         TIMER_A_TAIE_INTERRUPT_DISABLE,         // 禁止TA中断
         TIMER_A_CCIE_CCR0_INTERRUPT_DISABLE,    // 禁止CCR0触发中断
         TIMER_A_DO_CLEAR                        // 清空值
@@ -39,20 +41,23 @@ const Timer_A_UpModeConfig upConfig =
 
 float Distance(void)
 {
-	int i=0;
+	int i;
 	float distance=0,sum = 0,count;
-	while(i!=5)
-	{
+	for(i=0;i<5;i++){ // 每次测距输出结果为5次测距的平均值
 	    MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN4); // P2.4 Trig 输出低电平,准备触发
 		MAP_GPIO_setOutputHighOnPin(GPIO_PORT_P2, GPIO_PIN4);// P2.4 Trig 输出高电平
-		delay_us(10); // 延时10us, 高电平持续10us激发测距
+		delay_us(15); // 延时15us, 高电平持续10us以上激发测距，延迟15us是为了保证激发
 		MAP_GPIO_setOutputLowOnPin(GPIO_PORT_P2, GPIO_PIN4);// P2.4 Trig 输出低电平，结束触发
 		while(MAP_GPIO_getInputPinValue(GPIO_PORT_P5,GPIO_PIN6) == 0 );	// 当P5.6变为高电平时，测距开始
-		    MAP_Timer_A_clearTimer(TIMER_A2_BASE);	 // TA2.1清空计数
+		MAP_Timer_A_clearTimer(TIMER_A2_BASE);	 // TA2.1清空计数
 		while(MAP_GPIO_getInputPinValue(GPIO_PORT_P5,GPIO_PIN6) == 1); // 当P5.6变为低电平时,测距完成
-		    count= MAP_Timer_A_getCounterValue(TIMER_A2_BASE); // 读取TA2.1计数
+		count= MAP_Timer_A_getCounterValue(TIMER_A2_BASE); // 读取TA2.1计数
 		//v = 340m/s = 34000cm/s = 34000cm/10^6us = 0.034cm/us
 		//s = vt/2 = t*0.034/2 = t*0.017 = t/5.8 mm
+        if(count >= 66000){
+            UART_Printf("Exceed the maximum ranging range\n");
+            return -1;
+        }
 		distance=(count / 5.8);	// 计算距离
 		i++; 
 		sum = sum + distance;
@@ -113,10 +118,20 @@ void PORT1_IRQHandler(void)
         KEY1_antishake(); // 按键防抖
         KEY2_antishake(); // 按键防抖
         LED2_GREEN_ON(); // 打开绿色LED，表示正在测距
-        float Distance1= Distance(); // 测距
-        sprintf(str,"Distance = %.2fmm\r\n",Distance1); // 将测距结果转换为字符串 
-        UART_Printf(str); // 打印测距结果
-        delay_ms(50); // 延时50ms,等待下一次测距
-        LED2_GREEN_OFF(); // 关闭绿色LED，表示测距结束
+        float distance = Distance(); // 测距
+        if(distance < 0){
+            LED2_GREEN_OFF(); // 关闭绿色LED，表示测距结束
+            LED2_RED_ON(); // 打开红色LED，表示测距失败
+            delay_ms(50); // 延时50ms,等待下一次测距
+            UART_Printf("Failed to measure distance\n");
+            LED2_RED_OFF(); // 关闭红色LED
+        }
+        else{
+            sprintf(str,"Distance = %.2fmm\r\n",distance); // 将测距结果转换为字符串 
+            UART_Printf(str); // 打印测距结果
+            delay_ms(50); // 延时50ms,等待下一次测距
+            LED2_GREEN_OFF(); // 关闭绿色LED，表示测距结束
+        }
+
     }
 }
