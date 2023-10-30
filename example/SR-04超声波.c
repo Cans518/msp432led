@@ -54,7 +54,7 @@ float Distance(void)
 		count= MAP_Timer_A_getCounterValue(TIMER_A2_BASE); // 读取TA2.1计数
 		//v = 340m/s = 34000cm/s = 34000cm/10^6us = 0.034cm/us
 		//s = vt/2 = t*0.034/2 = t*0.017 = t/5.8 mm
-        if(count >= 66000){
+        if(count >= 66000 || count <= 200){
             UART_Printf("Exceed the maximum ranging range\n");
             return -1;
         }
@@ -100,6 +100,8 @@ int main()
     MAP_Interrupt_enableSleepOnIsrExit();// 允许未中断时进入睡眠低功耗模式
 
     MAP_Interrupt_enableMaster(); // 使能总中断
+
+    UART_Printf("Start measuring distance\nPlease make sure the measuring distance is between 2cm and 600cm\n");
 
     while(1)
         MAP_PCM_gotoLPM0();//低功耗模式0，串口中断唤醒
