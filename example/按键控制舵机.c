@@ -5,12 +5,12 @@
 #include <DELAY_S.h>
 
 #define TIMER_PERIODA 60000 // 周期 20ms——控制舵机的PWM波
-#define DUTY_CYCLE 4500 // 2.5ms的工作时间，对应sg90舵机的90°位置
+#define DUTY_CYCLE 4500 // 1.5ms的工作时间，对应sg90舵机的90°位置
 
 uint32_t duty_cycle = DUTY_CYCLE;
 uint8_t cout_1 = 0, cout_2 = 0;
 
-/*配置TIMERA为向上计数模式的参数结构体*/           //使用Timer_A2.1，对应引脚5.6
+/*配置TIMERA为向上计数模式的参数结构体*/           //使用Timer_A2
 const Timer_A_UpModeConfig upConfigA2 =
 {
         TIMER_A_CLOCKSOURCE_SMCLK,              // 使用时钟源SMCLK

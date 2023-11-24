@@ -28,7 +28,7 @@ void UART_Printf(char *str)
 
 int main(void)
 {
-	MAP_WDT_A_holdTimer(); // 关闭开门狗
+	MAP_WDT_A_holdTimer(); // 关闭看门狗
 
 	LED_Init(); // 初始化LED
 	KEY_Init(); // 初始化KEY

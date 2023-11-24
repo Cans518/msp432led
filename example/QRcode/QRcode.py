@@ -4,7 +4,7 @@ import serial
 import numpy as np
 
 # 初始化串口
-ser = serial.Serial('COM6', 115200)  # 请替换'COM9'为你的串口名称
+ser = serial.Serial('COM6', 115200)  
 
 def read_qr_code_and_send_serial():
     # 打开摄像头
